@@ -1,0 +1,16 @@
+# JetBrains IDE files
+.idea/
+*.iws
+*.iml
+*.ipr
+
+# Go binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# OS junk
+.DS_Store
