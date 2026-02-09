@@ -2,11 +2,11 @@ syntax = "proto3";
 
 package monitor;
 
-// This path must match your github username/repo
 option go_package = "github.com/Mohammad-Mahdi82/NexusOps/pkg/monitor";
 
 service NexusService {
-  rpc StreamSession(stream Heartbeat) returns (stream Command);
+  // Bidirectional stream
+  rpc StreamSession(stream Heartbeat) returns (stream CommandResponse);
 }
 
 message Heartbeat {
@@ -15,7 +15,6 @@ message Heartbeat {
   int64 timestamp = 3;
 }
 
-message Command {
-  string action = 1;
-  string payload = 2;
+message CommandResponse {
+  bool close_active_game = 1;
 }
