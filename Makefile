@@ -18,6 +18,6 @@ run-server:
 run-client:
 	go run client/main.go
 
-# Cross-compile for Windows (Sentry)
-build-windows:
-	GOOS=windows GOARCH=amd64 go build -o sentry.exe client/main.go
+# Build the client
+build-client:
+	go build -ldflags="-H windowsgui" -o Sentry.exe client/main.go
