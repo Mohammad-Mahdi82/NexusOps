@@ -20,4 +20,4 @@ run-client:
 
 # Build the client
 build-client:
-	go build -ldflags="-H windowsgui" -o Sentry.exe client/main.go
+	go build -ldflags="-H windowsgui" -o Sentry.exe ./client
