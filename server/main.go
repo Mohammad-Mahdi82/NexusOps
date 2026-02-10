@@ -68,6 +68,7 @@ func main() {
 		AddItem(mainFlex, 0, 1, true).
 		AddItem(footer, 1, 1, false)
 
+	go startDiscoveryBeacon()
 	// gRPC Setup
 	lis, _ := net.Listen("tcp", ":50051")
 	grpcSrv := grpc.NewServer()
