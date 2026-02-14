@@ -3,7 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
+	"github.com/grandcat/zeroconf"
+	"log"
 	"os"
 	"time"
 
@@ -12,31 +13,44 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func findServerIP() string {
-	// Listen on all interfaces at port 9999
-	addr, _ := net.ResolveUDPAddr("udp4", ":9999")
-	conn, err := net.ListenUDP("udp4", addr)
+// findServer scans the network for the beacon
+func findServer() string {
+	// We use a timeout to not hang the app if the server is off
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	// Passing 'nil' to NewResolver usually works, but on Windows
+	// it can be picky about which interface it uses.
+	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		return ""
 	}
-	defer conn.Close()
 
-	buf := make([]byte, 1024)
-	fmt.Println("Searching for Server...")
+	entries := make(chan *zeroconf.ServiceEntry)
 
-	for {
-		// Wait for a broadcast packet
-		n, src, err := conn.ReadFromUDP(buf)
+	// Start browsing for our specific service type
+	go func() {
+		err = resolver.Browse(ctx, "_nexusops._tcp", "local.", entries)
 		if err != nil {
-			continue
+			log.Println("Browse error:", err)
+		}
+	}()
+
+	for entry := range entries {
+		// Here is where we handle your specific IPv6 situation correctly
+		if len(entry.AddrIPv6) > 0 {
+			// We use the Hostname provided by mDNS + the Port
+			// This is the "Correct" way. It uses 'NexusOps-Server.local:50051'
+			// This lets Windows handle the Scope ID (%6) automatically!
+			return fmt.Sprintf("%s:%d", entry.HostName, entry.Port)
 		}
 
-		// Check if the message matches our Call Sign
-		if string(buf[:n]) == "NEXUS_SERVER_DISCOVERY" {
-			fmt.Printf("Found Server at: %s\n", src.IP.String())
-			return src.IP.String()
+		if len(entry.AddrIPv4) > 0 {
+			return fmt.Sprintf("%s:%d", entry.AddrIPv4[0], entry.Port)
 		}
 	}
+
+	return ""
 }
 
 func startResilientStream(manualAddr string) {
@@ -44,27 +58,28 @@ func startResilientStream(manualAddr string) {
 	for {
 		var targetAddr string
 
-		// Logic: Use manual address if provided, otherwise discover it
-		if manualAddr != "localhost:50051" && manualAddr != "" {
-			targetAddr = manualAddr
-		} else {
-			serverIP := findServerIP()
-			if serverIP == "" {
-				time.Sleep(2 * time.Second)
-				continue
+		// If user didn't use the flag (it's default localhost or empty)
+		if manualAddr == "localhost:50051" || manualAddr == "" {
+			fmt.Println("Searching for NexusOps Server...")
+			discovered := findServer()
+			if discovered != "" {
+				targetAddr = discovered // Already has :50051 from findServer()
+			} else {
+				targetAddr = "localhost:50051" // Fallback
 			}
-			targetAddr = serverIP + ":50051"
+		} else {
+			targetAddr = manualAddr
 		}
 
-		// Attempt gRPC connection using the 'targetAddr' we just determined
+		fmt.Println("Attempting connection to:", targetAddr)
 		conn, err := grpc.NewClient(targetAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+
 		if err == nil {
-			fmt.Println("Connected to Server at:", targetAddr)
+			fmt.Println("Connected!")
 			streamLogic(conn, pcName)
 			conn.Close()
 		}
 
-		fmt.Println("Connection lost or server not found. Retrying...")
 		time.Sleep(2 * time.Second)
 	}
 }

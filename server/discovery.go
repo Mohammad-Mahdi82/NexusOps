@@ -1,24 +1,37 @@
 package main
 
 import (
+	"github.com/grandcat/zeroconf"
+	"log"
 	"net"
-	"time"
 )
 
+// Declare this at the package level so it's not garbage collected
+var beaconServer *zeroconf.Server
+
 func startDiscoveryBeacon() {
-	// 255.255.255.255 targets every device on the local network
-	addr, _ := net.ResolveUDPAddr("udp4", "255.255.255.255:9999")
-	conn, err := net.DialUDP("udp4", nil, addr)
+	var err error
+
+	// Explicitly grab all network interfaces to ensure we hit the Ethernet port
+	ifaces, err := net.Interfaces()
 	if err != nil {
+		log.Println("Could not find interfaces:", err)
+	}
+
+	// Capture the server properly
+	beaconServer, err = zeroconf.Register(
+		"NexusOps-Server",
+		"_nexusops._tcp",
+		"local.",
+		50051,
+		[]string{"version=1.0"}, // Good practice to have some TXT data
+		ifaces,                  // Tell it to use EVERY interface it finds
+	)
+
+	if err != nil {
+		log.Println("Discovery Beacon Error:", err)
 		return
 	}
-	defer conn.Close()
 
-	// This is the "Call Sign" the clients are listening for
-	message := []byte("NEXUS_SERVER_DISCOVERY")
-
-	for {
-		_, _ = conn.Write(message)
-		time.Sleep(3 * time.Second) // Shout every 3 seconds
-	}
+	log.Println("mDNS Beacon active: NexusOps-Server is broadcasting on all ports.")
 }

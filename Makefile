@@ -21,3 +21,7 @@ run-client:
 # Build the client
 build-client:
 	go build -ldflags="-H windowsgui" -o Sentry.exe ./client
+
+# Build the server for raspberrypi
+build-server-raspberry:
+	set GOOS=linux&& set GOARCH=arm64&& go build -o nexus-server ./server
