@@ -5,7 +5,7 @@
 *.ipr
 
 # Go binaries
-bin/
+#bin/
 *.exe
 *.exe~
 *.dll
